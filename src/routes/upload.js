@@ -23,7 +23,8 @@ const upload = multer({
 
 router.post('/', auth, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' })
-  const url = `http://localhost:${process.env.PORT || 3001}/uploads/${req.file.filename}`
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+  const url = `${backendUrl}/uploads/${req.file.filename}`;
   res.json({
     url,
     fileName: req.file.originalname,
