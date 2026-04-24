@@ -1,33 +1,40 @@
 const router = require('express').Router()
 const auth = require('../middleware/auth')
-const { pool } = require('../config/db')
+const prisma = require('../config/db') // Nuestra nueva conexión
 
 // Obtener todas las conversaciones del usuario
 router.get('/', auth, async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT 
-        c.id, c.name, c.is_group, c.color, c.created_at,
-        (
-          SELECT content FROM messages
-          WHERE conversation_id = c.id
-          ORDER BY created_at DESC LIMIT 1
-        ) AS last_message,
-        (
-          SELECT created_at FROM messages
-          WHERE conversation_id = c.id
-          ORDER BY created_at DESC LIMIT 1
-        ) AS last_message_time,
-        (
-          SELECT COUNT(*) FROM messages
-          WHERE conversation_id = c.id AND read = FALSE AND sender_id != $1
-        ) AS unread_count
-      FROM conversations c
-      JOIN conversation_members cm ON cm.conversation_id = c.id
-      WHERE cm.user_id = $1
-      ORDER BY last_message_time DESC NULLS LAST
-    `, [req.user.id])
-    res.json(result.rows)
+    const conversaciones = await prisma.conversation.findMany({
+      where: {
+        members: { some: { user_id: req.user.id } }
+      },
+      include: {
+        messages: {
+          orderBy: { created_at: 'desc' },
+          take: 1 // Solo traemos el último mensaje
+        },
+        _count: {
+          select: {
+            messages: { where: { read: false, sender_id: { not: req.user.id } } }
+          }
+        }
+      }
+    })
+
+    // Moldeamos los datos para que el Frontend de React los lea igualito que antes
+    const result = conversaciones.map(c => ({
+      id: c.id,
+      name: c.name,
+      is_group: c.is_group,
+      color: c.color,
+      created_at: c.created_at,
+      last_message: c.messages[0]?.content || null,
+      last_message_time: c.messages[0]?.created_at || null,
+      unread_count: c._count.messages
+    })).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0))
+
+    res.json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -37,21 +44,20 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   const { name, is_group, color, member_ids } = req.body
   try {
-    const conv = await pool.query(
-      'INSERT INTO conversations (name, is_group, color) VALUES ($1, $2, $3) RETURNING *',
-      [name, is_group || false, color || '#3b82f6']
-    )
-    const convId = conv.rows[0].id
-
-    // Agregar al creador + miembros
     const allMembers = [...new Set([req.user.id, ...member_ids])]
-    for (const uid of allMembers) {
-      await pool.query(
-        'INSERT INTO conversation_members (conversation_id, user_id) VALUES ($1, $2)',
-        [convId, uid]
-      )
-    }
-    res.status(201).json(conv.rows[0])
+    
+    // Prisma nos permite crear la conversación y sus miembros en 1 solo paso
+    const conv = await prisma.conversation.create({
+      data: {
+        name,
+        is_group: is_group || false,
+        color: color || '#3b82f6',
+        members: {
+          create: allMembers.map(uid => ({ user_id: uid }))
+        }
+      }
+    })
+    res.status(201).json(conv)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -61,14 +67,18 @@ router.post('/', auth, async (req, res) => {
 router.get('/users/search', auth, async (req, res) => {
   const { q } = req.query
   try {
-    const result = await pool.query(
-      `SELECT id, name, email, avatar_color, status 
-       FROM users 
-       WHERE (name ILIKE $1 OR email ILIKE $1) AND id != $2
-       LIMIT 10`,
-      [`%${q}%`, req.user.id]
-    )
-    res.json(result.rows)
+    const users = await prisma.user.findMany({
+      where: {
+        id: { not: req.user.id },
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } }, // Insensitive para que no importe mayúsculas
+          { email: { contains: q, mode: 'insensitive' } }
+        ]
+      },
+      select: { id: true, name: true, email: true, avatar_color: true, status: true },
+      take: 10
+    })
+    res.json(users)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
