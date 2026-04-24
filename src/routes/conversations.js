@@ -1,6 +1,6 @@
 const router = require('express').Router()
 const auth = require('../middleware/auth')
-const prisma = require('../config/db') // Nuestra nueva conexión
+const prisma = require('../config/db')
 
 // Obtener todas las conversaciones del usuario
 router.get('/', auth, async (req, res) => {
@@ -12,7 +12,7 @@ router.get('/', auth, async (req, res) => {
       include: {
         messages: {
           orderBy: { created_at: 'desc' },
-          take: 1 // Solo traemos el último mensaje
+          take: 1 
         },
         _count: {
           select: {
@@ -22,7 +22,6 @@ router.get('/', auth, async (req, res) => {
       }
     })
 
-    // Moldeamos los datos para que el Frontend de React los lea igualito que antes
     const result = conversaciones.map(c => ({
       id: c.id,
       name: c.name,
@@ -44,21 +43,41 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   const { name, is_group, color, member_ids } = req.body
   try {
-    const allMembers = [...new Set([req.user.id, ...member_ids])]
+    // 1. Protección por si member_ids no es un array
+    const membersList = Array.isArray(member_ids) ? member_ids : [member_ids]
+    const allMembers = [...new Set([req.user.id, ...membersList])]
     
-    // Prisma nos permite crear la conversación y sus miembros en 1 solo paso
+    // 2. Anti-duplicados: Si es un chat directo (2 personas), buscar si ya existe
+    if (!is_group && allMembers.length === 2) {
+      const existing = await prisma.conversation.findFirst({
+        where: {
+          is_group: false,
+          AND: [
+            { members: { some: { user_id: allMembers[0] } } },
+            { members: { some: { user_id: allMembers[1] } } }
+          ]
+        }
+      })
+      // Si ya existe, devolvemos el chat antiguo y cortamos la ejecución
+      if (existing) return res.status(200).json(existing)
+    }
+
+    // 3. Crear el nuevo chat con sintaxis segura
     const conv = await prisma.conversation.create({
       data: {
-        name,
+        name: name || null,
         is_group: is_group || false,
         color: color || '#3b82f6',
         members: {
-          create: allMembers.map(uid => ({ user_id: uid }))
+          create: allMembers.map(uid => ({
+            user: { connect: { id: uid } }
+          }))
         }
       }
     })
     res.status(201).json(conv)
   } catch (err) {
+    console.error("🔥 Error creando chat: - conversations.js:80", err.message) // Rastro para la terminal
     res.status(500).json({ error: err.message })
   }
 })
@@ -71,7 +90,7 @@ router.get('/users/search', auth, async (req, res) => {
       where: {
         id: { not: req.user.id },
         OR: [
-          { name: { contains: q, mode: 'insensitive' } }, // Insensitive para que no importe mayúsculas
+          { name: { contains: q, mode: 'insensitive' } }, 
           { email: { contains: q, mode: 'insensitive' } }
         ]
       },
