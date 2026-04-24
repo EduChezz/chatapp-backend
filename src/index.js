@@ -4,25 +4,23 @@ const cors = require('cors')
 const http = require('http')
 const { Server } = require('socket.io')
 const path = require('path')
-const { initDB, pool } = require('./config/db')
 
-// --- NUEVO: Variable para la URL ---
+// 1. Importamos prisma en lugar de pool y initDB
+const prisma = require('./config/db')
+
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
 const app = express()
 const server = http.createServer(app)
 
-// --- NUEVO: Usar la variable en Socket.io ---
 const io = new Server(server, {
   cors: { origin: FRONTEND_URL, methods: ['GET', 'POST'] }
 })
 
-// --- NUEVO: Usar la variable en Express ---
 app.use(cors({ origin: FRONTEND_URL }))
 app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
-// --- NUEVO: Health check para Render ---
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 // Rutas
@@ -35,14 +33,14 @@ app.use('/api/upload', require('./routes/upload'))
 const onlineUsers = new Map() // userId → socketId
 
 io.on('connection', (socket) => {
-  console.log('🔌 Socket conectado: - index.js:29', socket.id)
+  console.log('🔌 Socket conectado: - index.js:36', socket.id)
 
   // Usuario se conecta
   socket.on('user:join', (userId) => {
     onlineUsers.set(userId, socket.id)
     socket.join(userId)
     io.emit('users:online', Array.from(onlineUsers.keys()))
-    console.log(`👤 Usuario ${userId} en línea - index.js:36`)
+    console.log(`👤 Usuario ${userId} en línea - index.js:43`)
   })
 
   // Unirse a sala de conversación
@@ -54,15 +52,22 @@ io.on('connection', (socket) => {
   socket.on('message:send', async (data) => {
     const { conversationId, senderId, content, type, fileName, fileSize } = data
     try {
-      const result = await pool.query(
-        'INSERT INTO messages (conversation_id, sender_id, content, type, file_name, file_size) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-        [conversationId, senderId, content, type || 'text', fileName || null, fileSize || null]
-      )
-      const msg = result.rows[0]
+      // 2. Guardamos el mensaje usando Prisma
+      const msg = await prisma.message.create({
+        data: {
+          conversation_id: conversationId,
+          sender_id: senderId,
+          content: content,
+          type: type || 'text',
+          file_name: fileName || null,
+          file_size: fileSize || null
+        }
+      })
+      
       // Emitir a todos en la sala
       io.to(conversationId).emit('message:new', { ...msg, sent: false })
     } catch (err) {
-      console.error('Error guardando mensaje: - index.js:56', err.message)
+      console.error('Error guardando mensaje: - index.js:70', err.message)
     }
   })
 
@@ -89,12 +94,12 @@ io.on('connection', (socket) => {
       }
     }
     io.emit('users:online', Array.from(onlineUsers.keys()))
-    console.log('❌ Socket desconectado: - index.js:83', socket.id)
+    console.log('❌ Socket desconectado: - index.js:97', socket.id)
   })
 })
 
-// Arrancar
+// 3. Arrancar el servidor directamente sin initDB
 const PORT = process.env.PORT || 3001
-initDB().then(() => {
-  server.listen(PORT, () => console.log(`🚀 Servidor en http://localhost:${PORT} - index.js:90`))
+server.listen(PORT, () => {
+  console.log(`🚀 Servidor en puerto ${PORT} - index.js:104`)
 })
