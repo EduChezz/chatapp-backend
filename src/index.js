@@ -4,9 +4,10 @@ const cors = require('cors')
 const http = require('http')
 const { Server } = require('socket.io')
 const path = require('path')
-
-// 1. Importamos prisma en lugar de pool y initDB
 const prisma = require('./config/db')
+
+// 1. Importamos el cliente de Redis
+const { createClient } = require('redis')
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
@@ -29,30 +30,38 @@ app.use('/api/conversations', require('./routes/conversations'))
 app.use('/api/messages', require('./routes/messages'))
 app.use('/api/upload', require('./routes/upload'))
 
-// WebSockets
-const onlineUsers = new Map() // userId → socketId
+// 2. Configuramos la conexión a Redis
+const redisClient = createClient({
+  url: process.env.REDIS_URL
+})
 
+redisClient.on('error - index.js:38', (err) => console.log('❌ Error en Redis:', err))
+
+// WebSockets con Redis
 io.on('connection', (socket) => {
-  console.log('🔌 Socket conectado: - index.js:36', socket.id)
+  console.log('🔌 Socket conectado: - index.js:42', socket.id)
 
   // Usuario se conecta
-  socket.on('user:join', (userId) => {
-    onlineUsers.set(userId, socket.id)
+  socket.on('user:join', async (userId) => {
+    // 3. Guardamos la conexión en la "bóveda" de Redis
+    await redisClient.hSet('user_sockets', userId, socket.id)
+    await redisClient.hSet('socket_users', socket.id, userId)
+
     socket.join(userId)
-    io.emit('users:online', Array.from(onlineUsers.keys()))
-    console.log(`👤 Usuario ${userId} en línea - index.js:43`)
+
+    // Leemos quiénes están conectados directamente desde Redis
+    const onlineUsers = await redisClient.hKeys('user_sockets')
+    io.emit('users:online', onlineUsers)
+    console.log(`👤 Usuario ${userId} en línea - index.js:55`)
   })
 
-  // Unirse a sala de conversación
   socket.on('conversation:join', (conversationId) => {
     socket.join(conversationId)
   })
 
-  // Enviar mensaje en tiempo real
   socket.on('message:send', async (data) => {
     const { conversationId, senderId, content, type, fileName, fileSize } = data
     try {
-      // 2. Guardamos el mensaje usando Prisma
       const msg = await prisma.message.create({
         data: {
           conversation_id: conversationId,
@@ -63,15 +72,12 @@ io.on('connection', (socket) => {
           file_size: fileSize || null
         }
       })
-      
-      // Emitir a todos en la sala
       io.to(conversationId).emit('message:new', { ...msg, sent: false })
     } catch (err) {
-      console.error('Error guardando mensaje: - index.js:70', err.message)
+      console.error('Error guardando mensaje: - index.js:77', err.message)
     }
   })
 
-  // Indicador "escribiendo..."
   socket.on('typing:start', ({ conversationId, userName }) => {
     socket.to(conversationId).emit('typing:start', { userName })
   })
@@ -80,26 +86,32 @@ io.on('connection', (socket) => {
     socket.to(conversationId).emit('typing:stop')
   })
 
-  // Reacción en tiempo real
   socket.on('reaction:add', ({ conversationId, messageId, emoji, userId }) => {
     io.to(conversationId).emit('reaction:add', { messageId, emoji, userId })
   })
 
   // Desconexión
-  socket.on('disconnect', () => {
-    for (const [userId, sid] of onlineUsers.entries()) {
-      if (sid === socket.id) {
-        onlineUsers.delete(userId)
-        break
-      }
+  socket.on('disconnect', async () => {
+    // 4. Buscamos en Redis quién era el dueño de este socket y lo borramos
+    const userId = await redisClient.hGet('socket_users', socket.id)
+
+    if (userId) {
+      await redisClient.hDel('user_sockets', userId)
+      await redisClient.hDel('socket_users', socket.id)
+
+      const onlineUsers = await redisClient.hKeys('user_sockets')
+      io.emit('users:online', onlineUsers)
     }
-    io.emit('users:online', Array.from(onlineUsers.keys()))
-    console.log('❌ Socket desconectado: - index.js:97', socket.id)
+    console.log('❌ Socket desconectado: - index.js:105', socket.id)
   })
 })
 
-// 3. Arrancar el servidor directamente sin initDB
 const PORT = process.env.PORT || 3001
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor en puerto ${PORT} - index.js:104`)
+
+// 5. Encendemos Redis primero y luego el servidor
+redisClient.connect().then(() => {
+  console.log('🟢 Conectado a Redis - index.js:113')
+  server.listen(PORT, () => {
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:115`)
+  })
 })
