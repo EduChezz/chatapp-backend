@@ -18,20 +18,38 @@ router.get('/', auth, async (req, res) => {
           select: {
             messages: { where: { read: false, sender_id: { not: req.user.id } } }
           }
+        },
+        // NUEVO: Le pedimos a Prisma que traiga los datos del "otro" usuario en el chat
+        members: {
+          where: { user_id: { not: req.user.id } },
+          include: {
+            user: { select: { name: true, avatar_color: true } }
+          }
         }
       }
     })
 
-    const result = conversaciones.map(c => ({
-      id: c.id,
-      name: c.name,
-      is_group: c.is_group,
-      color: c.color,
-      created_at: c.created_at,
-      last_message: c.messages[0]?.content || null,
-      last_message_time: c.messages[0]?.created_at || null,
-      unread_count: c._count.messages
-    })).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0))
+    const result = conversaciones.map(c => {
+      // Lógica dinámica: Si NO es grupo, robamos el nombre y color del otro miembro
+      let chatName = c.name;
+      let chatColor = c.color;
+
+      if (!c.is_group && c.members && c.members.length > 0) {
+        chatName = c.members[0].user.name;
+        chatColor = c.members[0].user.avatar_color;
+      }
+
+      return {
+        id: c.id,
+        name: chatName,
+        is_group: c.is_group,
+        color: chatColor,
+        created_at: c.created_at,
+        last_message: c.messages[0]?.content || null,
+        last_message_time: c.messages[0]?.created_at || null,
+        unread_count: c._count.messages
+      }
+    }).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0))
 
     res.json(result)
   } catch (err) {
@@ -77,7 +95,7 @@ router.post('/', auth, async (req, res) => {
     })
     res.status(201).json(conv)
   } catch (err) {
-    console.error("🔥 Error creando chat: - conversations.js:80", err.message) // Rastro para la terminal
+    console.error("🔥 Error creando chat: - conversations.js:98", err.message)
     res.status(500).json({ error: err.message })
   }
 })
