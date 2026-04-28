@@ -163,5 +163,27 @@ router.delete('/:id/members/:userId', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Añadir un nuevo integrante a un grupo existente
+router.post('/:id/members', auth, async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    const { userId } = req.body; 
+
+    // Le decimos a Prisma que actualice el grupo conectando este nuevo usuario
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        members: {
+          create: { user: { connect: { id: userId } } }
+        }
+      }
+    });
+
+    res.json({ message: 'Usuario añadido exitosamente' });
+  } catch (err) {
+    console.error("🔥 Error añadiendo integrante: - conversations.js:184", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router
