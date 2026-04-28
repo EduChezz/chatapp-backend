@@ -120,5 +120,27 @@ router.get('/users/search', auth, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+// Eliminar a un integrante de un grupo
+router.delete('/:id/members/:userId', auth, async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    const userToRemove = req.params.userId;
+
+    // Le decimos a Prisma que actualice el grupo, borrando la conexión con este usuario
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        members: {
+          deleteMany: { user_id: userToRemove }
+        }
+      }
+    });
+
+    res.json({ message: 'Usuario eliminado del grupo exitosamente' });
+  } catch (err) {
+    console.error("🔥 Error eliminando integrante: - conversations.js:141", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router
