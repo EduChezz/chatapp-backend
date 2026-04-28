@@ -120,6 +120,27 @@ router.get('/users/search', auth, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+// Obtener la lista de integrantes de un grupo
+router.get('/:id/members', auth, async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    const chat = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        members: {
+          include: { user: true } // Trae los nombres, fotos, etc.
+        }
+      }
+    });
+
+    // Filtramos la data para enviar un arreglo limpio de usuarios
+    const users = chat ? chat.members.map(m => m.user) : [];
+    res.json(users);
+  } catch (err) {
+    console.error("🔥 Error cargando integrantes: - conversations.js:140", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 // Eliminar a un integrante de un grupo
 router.delete('/:id/members/:userId', auth, async (req, res) => {
   try {
@@ -138,7 +159,7 @@ router.delete('/:id/members/:userId', auth, async (req, res) => {
 
     res.json({ message: 'Usuario eliminado del grupo exitosamente' });
   } catch (err) {
-    console.error("🔥 Error eliminando integrante: - conversations.js:141", err.message);
+    console.error("🔥 Error eliminando integrante: - conversations.js:162", err.message);
     res.status(500).json({ error: err.message });
   }
 });
