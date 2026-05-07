@@ -79,11 +79,13 @@ io.on('connection', (socket) => {
   })
 
   socket.on('typing:start', ({ conversationId, userName }) => {
-    socket.to(conversationId).emit('typing:start', { userName })
+    // 🔥 Ahora enviamos de vuelta el conversationId
+    socket.to(conversationId).emit('typing:start', { conversationId, userName })
   })
 
   socket.on('typing:stop', ({ conversationId }) => {
-    socket.to(conversationId).emit('typing:stop')
+    // 🔥 Ahora enviamos de vuelta el conversationId
+    socket.to(conversationId).emit('typing:stop', { conversationId })
   })
 
   socket.on('reaction:add', ({ conversationId, messageId, emoji, userId }) => {
@@ -106,7 +108,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:109', socket.id)
+    console.log('❌ Socket desconectado: - index.js:111', socket.id)
   })
 })
 
@@ -114,8 +116,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:117')
+  console.log('🟢 Conectado a Redis - index.js:119')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:119`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:121`)
   })
 })
