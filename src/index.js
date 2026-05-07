@@ -89,7 +89,10 @@ io.on('connection', (socket) => {
   socket.on('reaction:add', ({ conversationId, messageId, emoji, userId }) => {
     io.to(conversationId).emit('reaction:add', { messageId, emoji, userId })
   })
-
+  socket.on('message:read', ({ conversationId, readerId }) => {
+    socket.to(conversationId).emit('message:read_update', { conversationId, readerId })
+  })
+  
   // Desconexión
   socket.on('disconnect', async () => {
     // 4. Buscamos en Redis quién era el dueño de este socket y lo borramos
@@ -102,7 +105,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:105', socket.id)
+    console.log('❌ Socket desconectado: - index.js:108', socket.id)
   })
 })
 
@@ -110,8 +113,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:113')
+  console.log('🟢 Conectado a Redis - index.js:116')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:115`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:118`)
   })
 })
