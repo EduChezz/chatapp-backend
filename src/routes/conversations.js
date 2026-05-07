@@ -185,5 +185,26 @@ router.post('/:id/members', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Marcar todos los mensajes de una conversación como leídos
+router.put('/:id/read', auth, async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    
+    // Actualizamos todos los mensajes del chat que NO enviamos nosotros y que no están leídos
+    await prisma.message.updateMany({
+      where: {
+        conversation_id: conversationId,
+        sender_id: { not: req.user.id }, 
+        read: false
+      },
+      data: { read: true }
+    });
+
+    res.json({ message: 'Mensajes marcados como leídos exitosamente' });
+  } catch (err) {
+    console.error("🔥 Error al marcar como leído: - conversations.js:205", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router
