@@ -206,5 +206,32 @@ router.put('/:id/read', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Eliminar un chat (solo la conversación y sus mensajes)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const conversationId = req.params.id;
+    
+    // 1. Borramos todos los mensajes de este chat primero
+    await prisma.message.deleteMany({
+      where: { conversation_id: conversationId }
+    });
+    
+    // 2. Desvinculamos a los participantes del chat
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { members: { deleteMany: {} } }
+    });
+
+    // 3. Finalmente, borramos el chat vacío
+    await prisma.conversation.delete({
+      where: { id: conversationId }
+    });
+
+    res.json({ message: 'Chat eliminado exitosamente' });
+  } catch (err) {
+    console.error("🔥 Error eliminando chat: - conversations.js:232", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router
