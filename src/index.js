@@ -78,15 +78,15 @@ io.on('connection', (socket) => {
     }
   })
 
+  // index.js (Backend)
   socket.on('typing:start', ({ conversationId, userName }) => {
-    // 🔥 Ahora enviamos de vuelta el conversationId
-    socket.to(conversationId).emit('typing:start', { conversationId, userName })
-  })
+    // Enviamos la ID para que el frontend sepa en qué chat mostrarlo
+    socket.to(conversationId).emit('typing:start', { conversationId, userName });
+  });
 
   socket.on('typing:stop', ({ conversationId }) => {
-    // 🔥 Ahora enviamos de vuelta el conversationId
-    socket.to(conversationId).emit('typing:stop', { conversationId })
-  })
+    socket.to(conversationId).emit('typing:stop', { conversationId });
+  });
 
   socket.on('reaction:add', ({ conversationId, messageId, emoji, userId }) => {
     io.to(conversationId).emit('reaction:add', { messageId, emoji, userId })
