@@ -47,21 +47,24 @@ io.on('connection', (socket) => {
     await redisClient.hSet('user_sockets', userId, socket.id)
     await redisClient.hSet('socket_users', socket.id, userId)
 
+    // 🔥 CRUCIAL: El usuario se une a su "cuarto personal" usando su propio ID
     socket.join(userId)
 
     // Leemos quiénes están conectados directamente desde Redis
     const onlineUsers = await redisClient.hKeys('user_sockets')
     io.emit('users:online', onlineUsers)
-    console.log(`👤 Usuario ${userId} en línea - index.js:55`)
+    console.log(`👤 Usuario ${userId} en línea - index.js:56`)
   })
 
   socket.on('conversation:join', (conversationId) => {
     socket.join(conversationId)
   })
 
+  // 🔥 AQUÍ ESTÁ LA MAGIA DEL TIMBRAZO PERSONAL
   socket.on('message:send', async (data) => {
     const { conversationId, senderId, content, type, fileName, fileSize } = data
     try {
+      // Guardamos el mensaje en la base de datos
       const msg = await prisma.message.create({
         data: {
           conversation_id: conversationId,
@@ -72,15 +75,30 @@ io.on('connection', (socket) => {
           file_size: fileSize || null
         }
       })
-      io.to(conversationId).emit('message:new', { ...msg, sent: false })
+
+      // Buscamos a todos los participantes de este chat
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: { members: true }
+      })
+
+      if (conversation) {
+        // Creamos una lista con el cuarto general del chat Y los cuartos personales de cada usuario
+        const rooms = [conversationId, ...conversation.members.map(m => m.user_id)]
+        
+        // io.to(lista) envía el mensaje a todos. Socket.io es tan inteligente que 
+        // si alguien está en ambos cuartos, NO le duplica el mensaje. ¡Pura magia!
+        io.to(rooms).emit('message:new', { ...msg, sent: false })
+      } else {
+        io.to(conversationId).emit('message:new', { ...msg, sent: false })
+      }
+
     } catch (err) {
-      console.error('Error guardando mensaje: - index.js:77', err.message)
+      console.error('Error guardando mensaje: - index.js:97', err.message)
     }
   })
 
-  // index.js (Backend)
   socket.on('typing:start', ({ conversationId, userName }) => {
-    // Enviamos la ID para que el frontend sepa en qué chat mostrarlo
     socket.to(conversationId).emit('typing:start', { conversationId, userName });
   });
 
@@ -98,7 +116,6 @@ io.on('connection', (socket) => {
   
   // Desconexión
   socket.on('disconnect', async () => {
-    // 4. Buscamos en Redis quién era el dueño de este socket y lo borramos
     const userId = await redisClient.hGet('socket_users', socket.id)
 
     if (userId) {
@@ -108,7 +125,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:111', socket.id)
+    console.log('❌ Socket desconectado: - index.js:128', socket.id)
   })
 })
 
@@ -116,8 +133,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:119')
+  console.log('🟢 Conectado a Redis - index.js:136')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:121`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:138`)
   })
 })
