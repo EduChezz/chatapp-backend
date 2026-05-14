@@ -113,6 +113,40 @@ io.on('connection', (socket) => {
   socket.on('message:read', ({ conversationId, readerId }) => {
     socket.to(conversationId).emit('message:read_update', { conversationId, readerId })
   })
+  // ✨ NUEVO: Evento para Editar Mensaje
+  socket.on('message:edit', async ({ messageId, conversationId, newContent }) => {
+    try {
+      // 1. Actualizamos el texto en la base de datos
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { content: newContent }
+      })
+      // 2. Le avisamos a todos en el chat que el texto cambió
+      io.to(conversationId).emit('message:edit', { messageId, newContent })
+    } catch (err) {
+      console.error('Error al editar mensaje: - index.js:127', err.message)
+    }
+  })
+
+  // ✨ NUEVO: Evento para Eliminar Mensaje (Lógico)
+  socket.on('message:delete', async ({ messageId, conversationId }) => {
+    try {
+      // 1. "Vaciamos" el mensaje en la base de datos para no dejar rastros
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { 
+          content: '🚫 Este mensaje fue eliminado',
+          type: 'deleted',
+          file_name: null,
+          file_size: null
+        }
+      })
+      // 2. Avisamos a todos para que su pantalla se actualice al instante
+      io.to(conversationId).emit('message:delete', { messageId })
+    } catch (err) {
+      console.error('Error al eliminar mensaje: - index.js:147', err.message)
+    }
+  })
   
   // Desconexión
   socket.on('disconnect', async () => {
@@ -125,7 +159,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:128', socket.id)
+    console.log('❌ Socket desconectado: - index.js:162', socket.id)
   })
 })
 
@@ -133,8 +167,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:136')
+  console.log('🟢 Conectado a Redis - index.js:170')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:138`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:172`)
   })
 })
