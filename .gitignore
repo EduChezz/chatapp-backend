@@ -4,3 +4,5 @@ uploads/*
 !uploads/.gitkeep
 
 /src/generated/prisma
+
+/src/generated/prisma

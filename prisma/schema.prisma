@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -59,6 +60,7 @@ model Message {
   file_name       String?   @db.VarChar(255)
   file_size       String?   @db.VarChar(50)
   read            Boolean?  @default(false)
+  edited          Boolean?  @default(false)
   created_at      DateTime? @default(now()) @db.Timestamp(6)
 
   // Relaciones
@@ -70,15 +72,15 @@ model Message {
 }
 
 model Reaction {
-  id         String @id @default(uuid()) @db.Uuid
-  message_id String @db.Uuid
-  user_id    String @db.Uuid
-  emoji      String @db.VarChar(10)
-
+  id         String   @id @default(uuid()) @db.Uuid
+  emoji      String
+  user_id    String   @db.Uuid
+  message_id String   @db.Uuid
+  
   // Relaciones
-  message    Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
-  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@unique([message_id, user_id, emoji])
+  @@unique([user_id, message_id, emoji])
   @@map("reactions")
 }

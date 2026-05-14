@@ -7,14 +7,14 @@ router.get('/:conversationId', auth, async (req, res) => {
   const { conversationId } = req.params
   try {
     // 1. Buscamos los mensajes con sus reacciones y datos del remitente
-    const msgs = await prisma.message.findMany({
-      where: { conversation_id: conversationId },
-      include: {
-        sender: { select: { name: true, avatar_color: true } },
-        reactions: true
-      },
-      orderBy: { created_at: 'asc' }
-    })
+    const messages = await prisma.message.findMany({
+  where: { conversation_id: id },
+  include: {
+    sender: true,
+    reactions: true 
+  },
+  orderBy: { created_at: 'asc' }
+});
 
     // 2. Marcamos como leídos los mensajes que no envié yo
     await prisma.message.updateMany({

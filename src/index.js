@@ -111,9 +111,38 @@ io.on('connection', (socket) => {
     socket.to(conversationId).emit('typing:stop', { conversationId });
   });
 
-  socket.on('reaction:add', ({ conversationId, messageId, emoji, userId }) => {
-    io.to(conversationId).emit('reaction:add', { messageId, emoji, userId })
-  })
+  socket.on('reaction:add', async ({ conversationId, messageId, emoji, userId }) => {
+  try {
+    // 1. Verificar si la reacción ya existe (Toggle)
+    const existing = await prisma.reaction.findUnique({
+      where: {
+        user_id_message_id_emoji: {
+          user_id: userId,
+          message_id: messageId,
+          emoji: emoji
+        }
+      }
+    });
+
+    if (existing) {
+      // Si ya existe, la quitamos
+      await prisma.reaction.delete({ where: { id: existing.id } });
+      io.to(conversationId).emit('reaction:remove', { messageId, emoji, userId });
+    } else {
+      // Si no existe, la guardamos
+      await prisma.reaction.create({
+        data: {
+          message_id: messageId,
+          user_id: userId,
+          emoji: emoji
+        }
+      });
+      io.to(conversationId).emit('reaction:add', { messageId, emoji, userId });
+    }
+  } catch (error) {
+    console.error("Error al gestionar reacción: - index.js:143", error);
+  }
+});
   
   socket.on('message:read', ({ conversationId, readerId }) => {
     socket.to(conversationId).emit('message:read_update', { conversationId, readerId })
@@ -129,7 +158,7 @@ io.on('connection', (socket) => {
       // 2. Le avisamos a todos en el chat que el texto cambió
       io.to(conversationId).emit('message:edit', { messageId, newContent })
     } catch (err) {
-      console.error('Error al editar mensaje: - index.js:132', err.message)
+      console.error('Error al editar mensaje: - index.js:161', err.message)
     }
   })
 
@@ -149,7 +178,7 @@ io.on('connection', (socket) => {
       // 2. Avisamos a todos para que su pantalla se actualice al instante
       io.to(conversationId).emit('message:delete', { messageId })
     } catch (err) {
-      console.error('Error al eliminar mensaje: - index.js:152', err.message)
+      console.error('Error al eliminar mensaje: - index.js:181', err.message)
     }
   })
   
@@ -164,7 +193,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:167', socket.id)
+    console.log('❌ Socket desconectado: - index.js:196', socket.id)
   })
 })
 
@@ -172,8 +201,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:175')
+  console.log('🟢 Conectado a Redis - index.js:204')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:177`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:206`)
   })
 })
