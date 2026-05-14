@@ -15,9 +15,10 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'chatapp_uploads', // Así se llamará la carpeta dentro de tu Cloudinary
-    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt', 'zip'],
-    resource_type: 'auto' // Permite que subas tanto imágenes como documentos
+    folder: 'chatapp_uploads',
+    // ✨ AÑADIMOS webm, mp3, wav, ogg y m4a para permitir los audios
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt', 'zip', 'webm', 'mp3', 'wav', 'ogg', 'm4a'],
+    resource_type: 'auto' 
   }
 })
 
@@ -30,13 +31,19 @@ const upload = multer({
 router.post('/', auth, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' })
   
+  // ✨ NUEVO: Mejoramos la detección del tipo de archivo
+  let fileType = 'file'
+  if (req.file.mimetype) {
+    if (req.file.mimetype.startsWith('image/')) fileType = 'image'
+    else if (req.file.mimetype.startsWith('audio/') || req.file.mimetype.startsWith('video/')) fileType = 'audio'
+  }
+
   // Cloudinary nos da la URL segura y pública automáticamente en req.file.path
   res.json({
     url: req.file.path,
     fileName: req.file.originalname,
-    // Como Cloudinary maneja el tamaño distinto, le pasamos un valor estimado si no lo reporta directo
     fileSize: req.file.size ? (req.file.size / 1024).toFixed(1) + ' KB' : 'Desconocido',
-    type: req.file.mimetype && req.file.mimetype.startsWith('image/') ? 'image' : 'file'
+    type: fileType
   })
 })
 
