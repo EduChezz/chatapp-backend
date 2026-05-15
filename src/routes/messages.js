@@ -7,7 +7,10 @@ router.get('/:conversationId', auth, async (req, res) => {
   try {
     const messages = await prisma.message.findMany({
       where: { conversation_id: conversationId },
-      include: { sender: true, reactions: true },
+      include: {
+        sender: true,
+        reactions: true 
+      },
       orderBy: { created_at: 'asc' }
     });
 
@@ -21,6 +24,7 @@ router.get('/:conversationId', auth, async (req, res) => {
     })
 
     const result = messages.map(m => {
+      // Validación para evitar errores si no hay reacciones
       const groupedReactions = (m.reactions || []).reduce((acc, r) => {
         const existing = acc.find(x => x.emoji === r.emoji)
         if (existing) existing.count++
@@ -38,6 +42,7 @@ router.get('/:conversationId', auth, async (req, res) => {
         reactions: groupedReactions
       }
     })
+
     res.json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -50,6 +55,7 @@ router.post('/:messageId/reactions', auth, async (req, res) => {
   try {
     await prisma.reaction.upsert({
       where: {
+        // Orden exacto definido en el schema.prisma
         user_id_message_id_emoji: {
           user_id: req.user.id,
           message_id: messageId,
