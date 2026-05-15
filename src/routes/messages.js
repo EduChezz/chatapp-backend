@@ -2,21 +2,15 @@ const router = require('express').Router()
 const auth = require('../middleware/auth')
 const prisma = require('../config/db')
 
-// Obtener mensajes de una conversación
 router.get('/:conversationId', auth, async (req, res) => {
   const { conversationId } = req.params
   try {
-    // 1. Buscamos los mensajes con sus reacciones y datos del remitente
     const messages = await prisma.message.findMany({
-  where: { conversation_id: id },
-  include: {
-    sender: true,
-    reactions: true 
-  },
-  orderBy: { created_at: 'asc' }
-});
+      where: { conversation_id: conversationId },
+      include: { sender: true, reactions: true },
+      orderBy: { created_at: 'asc' }
+    });
 
-    // 2. Marcamos como leídos los mensajes que no envié yo
     await prisma.message.updateMany({
       where: { 
         conversation_id: conversationId, 
@@ -26,9 +20,7 @@ router.get('/:conversationId', auth, async (req, res) => {
       data: { read: true }
     })
 
-    // 3. Adaptamos las reacciones al formato del frontend
-    const result = msgs.map(m => {
-      // Agrupamos las reacciones por emoji para contarlas
+    const result = messages.map(m => {
       const groupedReactions = (m.reactions || []).reduce((acc, r) => {
         const existing = acc.find(x => x.emoji === r.emoji)
         if (existing) existing.count++
@@ -46,19 +38,16 @@ router.get('/:conversationId', auth, async (req, res) => {
         reactions: groupedReactions
       }
     })
-
     res.json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
 })
 
-// Agregar reacción
 router.post('/:messageId/reactions', auth, async (req, res) => {
   const { emoji } = req.body
   const { messageId } = req.params
   try {
-    // Usamos upsert para que si ya existe la reacción, no haga nada (evitar errores)
     await prisma.reaction.upsert({
       where: {
         user_id_message_id_emoji: {
