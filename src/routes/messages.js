@@ -29,7 +29,7 @@ router.get('/:conversationId', auth, async (req, res) => {
     // 3. Adaptamos las reacciones al formato del frontend
     const result = msgs.map(m => {
       // Agrupamos las reacciones por emoji para contarlas
-      const groupedReactions = m.reactions.reduce((acc, r) => {
+      const groupedReactions = (m.reactions || []).reduce((acc, r) => {
         const existing = acc.find(x => x.emoji === r.emoji)
         if (existing) existing.count++
         else acc.push({ emoji: r.emoji, count: 1 })
@@ -61,16 +61,16 @@ router.post('/:messageId/reactions', auth, async (req, res) => {
     // Usamos upsert para que si ya existe la reacción, no haga nada (evitar errores)
     await prisma.reaction.upsert({
       where: {
-        message_id_user_id_emoji: {
-          message_id: messageId,
+        user_id_message_id_emoji: {
           user_id: req.user.id,
+          message_id: messageId,
           emoji: emoji
         }
       },
-      update: {}, // Si existe, no actualizamos nada
+      update: {}, 
       create: {
-        message_id: messageId,
         user_id: req.user.id,
+        message_id: messageId,
         emoji: emoji
       }
     })
