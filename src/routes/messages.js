@@ -3,10 +3,10 @@ const auth = require('../middleware/auth')
 const prisma = require('../config/db')
 
 router.get('/:conversationId', auth, async (req, res) => {
-  const { conversationId } = req.params
+  const { conversationId } = req.params // Esta es la variable correcta
   try {
     const messages = await prisma.message.findMany({
-      where: { conversation_id: conversationId },
+      where: { conversation_id: conversationId }, // Cambia 'id' por 'conversationId'
       include: {
         sender: true,
         reactions: true 
