@@ -59,15 +59,27 @@ router.post('/login', async (req, res) => {
 
 // Actualizar perfil
 router.put('/profile', require('../middleware/auth'), async (req, res) => {
-  const { name, bio, avatar_color, status } = req.body
+  const { name, bio, avatar_color, status, avatar_url } = req.body
   try {
     // Actualizar los datos del usuario logueado
     const user = await prisma.user.update({
       where: { id: req.user.id },
-      data: { name, bio, avatar_color, status },
+      data: { name, bio, avatar_color, status, avatar_url },
       select: { id: true, name: true, email: true, avatar_color: true, bio: true, status: true }
     })
     res.json(user)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+// Logout — invalida el token en Redis
+router.post('/logout', require('../middleware/auth'), async (req, res) => {
+  const token = req.headers.authorization.split(' ')[1]
+  const { redisClient } = require('../index')
+  try {
+    // Lo guardamos en blacklist hasta que expire (7 días = 604800 segundos)
+    await redisClient.set(`blacklist:${token}`, '1', { EX: 604800 })
+    res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

@@ -31,8 +31,8 @@ app.use('/api/messages', require('./routes/messages'))
 app.use('/api/upload', require('./routes/upload'))
 
 // 2. Configuramos la conexión a Redis
-// 2. Configuramos la conexión a Redis
-const redisClient = createClient({
+let redisClient;
+redisClient = createClient({
   url: process.env.REDIS_URL,
   socket: {
     tls: true,
@@ -153,7 +153,7 @@ io.on('connection', (socket) => {
       // 1. Actualizamos el texto en la base de datos
       await prisma.message.update({
         where: { id: messageId },
-        data: { content: newContent }
+        data: { content: newContent, edited: true }
       })
       // 2. Le avisamos a todos en el chat que el texto cambió
       io.to(conversationId).emit('message:edit', { messageId, newContent })
@@ -206,3 +206,5 @@ redisClient.connect().then(() => {
     console.log(`🚀 Servidor en puerto ${PORT} - index.js:206`)
   })
 })
+
+module.exports = { redisClient }
