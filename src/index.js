@@ -30,21 +30,11 @@ app.use('/api/conversations', require('./routes/conversations'))
 app.use('/api/messages', require('./routes/messages'))
 app.use('/api/upload', require('./routes/upload'))
 
-// 2. Configuramos la conexión a Redis
-let redisClient;
-redisClient = createClient({
-  url: process.env.REDIS_URL,
-  socket: {
-    tls: true,
-    rejectUnauthorized: false // Esto le dice a Node que confíe en el certificado de Upstash
-  }
-})
-
-redisClient.on('error - index.js:43', (err) => console.log('❌ Error en Redis:', err))
+const redisClient = require('./config/redis')
 
 // WebSockets con Redis
 io.on('connection', (socket) => {
-  console.log('🔌 Socket conectado: - index.js:47', socket.id)
+  console.log('🔌 Socket conectado: - index.js:37', socket.id)
 
   // Usuario se conecta
   socket.on('user:join', async (userId) => {
@@ -58,7 +48,7 @@ io.on('connection', (socket) => {
     // Leemos quiénes están conectados directamente desde Redis
     const onlineUsers = await redisClient.hKeys('user_sockets')
     io.emit('users:online', onlineUsers)
-    console.log(`👤 Usuario ${userId} en línea - index.js:61`)
+    console.log(`👤 Usuario ${userId} en línea - index.js:51`)
   })
 
   socket.on('conversation:join', (conversationId) => {
@@ -99,7 +89,7 @@ io.on('connection', (socket) => {
       }
 
     } catch (err) {
-      console.error('Error guardando mensaje: - index.js:102', err.message)
+      console.error('Error guardando mensaje: - index.js:92', err.message)
     }
   })
 
@@ -140,7 +130,7 @@ io.on('connection', (socket) => {
       io.to(conversationId).emit('reaction:add', { messageId, emoji, userId });
     }
   } catch (error) {
-    console.error("Error al gestionar reacción: - index.js:143", error);
+    console.error("Error al gestionar reacción: - index.js:133", error);
   }
 });
   
@@ -158,7 +148,7 @@ io.on('connection', (socket) => {
       // 2. Le avisamos a todos en el chat que el texto cambió
       io.to(conversationId).emit('message:edit', { messageId, newContent })
     } catch (err) {
-      console.error('Error al editar mensaje: - index.js:161', err.message)
+      console.error('Error al editar mensaje: - index.js:151', err.message)
     }
   })
 
@@ -178,7 +168,7 @@ io.on('connection', (socket) => {
       // 2. Avisamos a todos para que su pantalla se actualice al instante
       io.to(conversationId).emit('message:delete', { messageId })
     } catch (err) {
-      console.error('Error al eliminar mensaje: - index.js:181', err.message)
+      console.error('Error al eliminar mensaje: - index.js:171', err.message)
     }
   })
   
@@ -193,7 +183,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:196', socket.id)
+    console.log('❌ Socket desconectado: - index.js:186', socket.id)
   })
 })
 
@@ -201,10 +191,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:204')
+  console.log('🟢 Conectado a Redis - index.js:194')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:206`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:196`)
   })
 })
-
-module.exports = { redisClient }
