@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken')
-const { redisClient } = require('../index')
+const redisClient = require('../config/redis')
 
 module.exports = async (req, res, next) => {
   const header = req.headers.authorization

@@ -75,7 +75,7 @@ router.put('/profile', require('../middleware/auth'), async (req, res) => {
 // Logout — invalida el token en Redis
 router.post('/logout', require('../middleware/auth'), async (req, res) => {
   const token = req.headers.authorization.split(' ')[1]
-  const { redisClient } = require('../index')
+  const redisClient = require('../config/redis')
   try {
     // Lo guardamos en blacklist hasta que expire (7 días = 604800 segundos)
     await redisClient.set(`blacklist:${token}`, '1', { EX: 604800 })
