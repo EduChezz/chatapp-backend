@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
         password: hash
       },
       // Le decimos a Prisma qué datos queremos que nos devuelva (excluyendo la contraseña)
-      select: { id: true, name: true, email: true, avatar_color: true, bio: true, status: true }
+      select: { id: true, name: true, email: true, avatar_color: true, bio: true, status: true, avatar_url: true }
     })
 
     const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' })
