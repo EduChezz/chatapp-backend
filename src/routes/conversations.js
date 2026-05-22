@@ -235,4 +235,42 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Bloquear / desbloquear usuario
+router.post('/block/:userId', auth, async (req, res) => {
+  const { userId } = req.params
+  try {
+    const existing = await prisma.contact.findUnique({
+      where: { user_id_contact_id: { user_id: req.user.id, contact_id: userId } }
+    })
+
+    if (existing) {
+      const updated = await prisma.contact.update({
+        where: { user_id_contact_id: { user_id: req.user.id, contact_id: userId } },
+        data: { is_blocked: !existing.is_blocked }
+      })
+      return res.json({ is_blocked: updated.is_blocked })
+    }
+
+    await prisma.contact.create({
+      data: { user_id: req.user.id, contact_id: userId, is_blocked: true }
+    })
+    res.json({ is_blocked: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Verificar si un usuario está bloqueado
+router.get('/block/:userId', auth, async (req, res) => {
+  const { userId } = req.params
+  try {
+    const contact = await prisma.contact.findUnique({
+      where: { user_id_contact_id: { user_id: req.user.id, contact_id: userId } }
+    })
+    res.json({ is_blocked: contact?.is_blocked || false })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
