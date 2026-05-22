@@ -56,6 +56,30 @@ io.on('connection', (socket) => {
   socket.on('message:send', async (data) => {
     const { conversationId, senderId, content, type, fileName, fileSize } = data
     try {
+      // Verificar si algún miembro bloqueó al remitente
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: { members: true }
+      })
+
+      if (conversation && !conversation.is_group) {
+        const otherMember = conversation.members.find(m => m.user_id !== senderId)
+        if (otherMember) {
+          const blocked = await prisma.contact.findUnique({
+            where: {
+              user_id_contact_id: {
+                user_id: otherMember.user_id,
+                contact_id: senderId
+              }
+            }
+          })
+          if (blocked?.is_blocked) {
+            socket.emit('message:blocked')
+            return
+          }
+        }
+      }
+
       // Guardamos el mensaje en la base de datos
       const msg = await prisma.message.create({
         data: {
@@ -86,7 +110,7 @@ io.on('connection', (socket) => {
       }
 
     } catch (err) {
-      console.error('Error guardando mensaje: - index.js:89', err.message)
+      console.error('Error guardando mensaje: - index.js:113', err.message)
     }
   })
 
@@ -127,7 +151,7 @@ io.on('connection', (socket) => {
       io.to(conversationId).emit('reaction:add', { messageId, emoji, userId });
     }
   } catch (error) {
-    console.error("Error al gestionar reacción: - index.js:130", error);
+    console.error("Error al gestionar reacción: - index.js:154", error);
   }
 });
   
@@ -145,7 +169,7 @@ io.on('connection', (socket) => {
       // 2. Le avisamos a todos en el chat que el texto cambió
       io.to(conversationId).emit('message:edit', { messageId, newContent })
     } catch (err) {
-      console.error('Error al editar mensaje: - index.js:148', err.message)
+      console.error('Error al editar mensaje: - index.js:172', err.message)
     }
   })
 
@@ -165,7 +189,7 @@ io.on('connection', (socket) => {
       // 2. Avisamos a todos para que su pantalla se actualice al instante
       io.to(conversationId).emit('message:delete', { messageId })
     } catch (err) {
-      console.error('Error al eliminar mensaje: - index.js:168', err.message)
+      console.error('Error al eliminar mensaje: - index.js:192', err.message)
     }
   })
   
@@ -180,7 +204,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:183', socket.id)
+    console.log('❌ Socket desconectado: - index.js:207', socket.id)
   })
 })
 
@@ -188,8 +212,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:191')
+  console.log('🟢 Conectado a Redis - index.js:215')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:193`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:217`)
   })
 })
