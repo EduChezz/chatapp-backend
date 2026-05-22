@@ -23,6 +23,8 @@ model User {
   messages     Message[]
   reactions    Reaction[]
   memberships  ConversationMember[]
+  contacts     Contact[] @relation("UserContacts")
+  contactOf    Contact[] @relation("ContactOfUser")
 
   @@map("users")
 }
@@ -85,4 +87,15 @@ model Reaction {
 
   @@unique([user_id, message_id, emoji])
   @@map("reactions")
+}
+model Contact {
+  user_id    String  @db.Uuid
+  contact_id String  @db.Uuid
+  is_blocked Boolean @default(false)
+
+  user    User @relation("UserContacts",  fields: [user_id],    references: [id], onDelete: Cascade)
+  contact User @relation("ContactOfUser", fields: [contact_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, contact_id])
+  @@map("contacts")
 }
