@@ -57,13 +57,13 @@ io.on('connection', (socket) => {
     const { conversationId, senderId, content, type, fileName, fileSize } = data
     try {
       // Verificar si algún miembro bloqueó al remitente
-      const conversation = await prisma.conversation.findUnique({
+      const conv = await prisma.conversation.findUnique({
         where: { id: conversationId },
         include: { members: true }
       })
 
-      if (conversation && !conversation.is_group) {
-        const otherMember = conversation.members.find(m => m.user_id !== senderId)
+      if (conv && !conv.is_group) {
+        const otherMember = conv.members.find(m => m.user_id !== senderId)
         if (otherMember) {
           const blocked = await prisma.contact.findUnique({
             where: {
