@@ -26,7 +26,6 @@ router.post('/register', async (req, res) => {
         email,
         password: hash
       },
-      // Le decimos a Prisma qué datos queremos que nos devuelva (excluyendo la contraseña)
       select: { id: true, name: true, email: true, avatar_color: true, bio: true, status: true, avatar_url: true }
     })
 
@@ -65,7 +64,7 @@ router.put('/profile', require('../middleware/auth'), async (req, res) => {
     const user = await prisma.user.update({
       where: { id: req.user.id },
       data: { name, bio, avatar_color, status, avatar_url },
-      select: { id: true, name: true, email: true, avatar_color: true, bio: true, status: true }
+      select: { id: true, name: true, email: true, avatar_color: true, bio: true, status: true, avatar_url: true }
     })
     res.json(user)
   } catch (err) {
