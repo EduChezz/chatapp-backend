@@ -78,14 +78,15 @@ router.post('/', auth, async (req, res) => {
         color: color || '#3b82f6',
         members: {
           create: allMembers.map(uid => ({
-            user: { connect: { id: uid } }
+            user: { connect: { id: uid } },
+            role: uid === req.user.id ? 'admin' : 'member'
           }))
         }
       }
     })
     res.status(201).json(conv)
   } catch (err) {
-    console.error("🔥 Error creando chat: - conversations.js:88", err.message)
+    console.error("🔥 Error creando chat: - conversations.js:89", err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -181,10 +182,10 @@ router.get('/:id/members', auth, async (req, res) => {
       }
     });
 
-    const users = chat ? chat.members.map(m => m.user) : [];
+    const users = chat ? chat.members.map(m => ({ ...m.user, role: m.role })) : [];
     res.json(users);
   } catch (err) {
-    console.error("🔥 Error cargando integrantes: - conversations.js:187", err.message);
+    console.error("🔥 Error cargando integrantes: - conversations.js:188", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -192,24 +193,28 @@ router.get('/:id/members', auth, async (req, res) => {
 // Eliminar a un integrante de un grupo
 router.delete('/:id/members/:userId', auth, async (req, res) => {
   try {
-    const conversationId = req.params.id;
-    const userToRemove = req.params.userId;
+    const conversationId = req.params.id
+    const userToRemove = req.params.userId
+
+    // Verificar que el que expulsa sea admin
+    const requester = await prisma.conversationMember.findUnique({
+      where: { conversation_id_user_id: { conversation_id: conversationId, user_id: req.user.id } }
+    })
+    if (!requester || requester.role !== 'admin') {
+      return res.status(403).json({ error: 'Solo los admins pueden expulsar miembros' })
+    }
 
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: {
-        members: {
-          deleteMany: { user_id: userToRemove }
-        }
-      }
-    });
+      data: { members: { deleteMany: { user_id: userToRemove } } }
+    })
 
-    res.json({ message: 'Usuario eliminado del grupo exitosamente' });
+    res.json({ message: 'Usuario eliminado del grupo exitosamente' })
   } catch (err) {
-    console.error("🔥 Error eliminando integrante: - conversations.js:209", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("🔥 Error eliminando integrante: - conversations.js:214", err.message)
+    res.status(500).json({ error: err.message })
   }
-});
+})
 
 // Añadir un nuevo integrante a un grupo existente
 router.post('/:id/members', auth, async (req, res) => {
@@ -228,7 +233,7 @@ router.post('/:id/members', auth, async (req, res) => {
 
     res.json({ message: 'Usuario añadido exitosamente' });
   } catch (err) {
-    console.error("🔥 Error añadiendo integrante: - conversations.js:231", err.message);
+    console.error("🔥 Error añadiendo integrante: - conversations.js:236", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -249,7 +254,7 @@ router.put('/:id/read', auth, async (req, res) => {
 
     res.json({ message: 'Mensajes marcados como leídos exitosamente' });
   } catch (err) {
-    console.error("🔥 Error al marcar como leído: - conversations.js:252", err.message);
+    console.error("🔥 Error al marcar como leído: - conversations.js:257", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -274,7 +279,7 @@ router.delete('/:id', auth, async (req, res) => {
 
     res.json({ message: 'Chat eliminado exitosamente' });
   } catch (err) {
-    console.error("🔥 Error eliminando chat: - conversations.js:277", err.message);
+    console.error("🔥 Error eliminando chat: - conversations.js:282", err.message);
     res.status(500).json({ error: err.message });
   }
 });
