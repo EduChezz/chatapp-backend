@@ -154,12 +154,12 @@ router.post('/favorite/:id', auth, async (req, res) => {
   const { id } = req.params
   try {
     const member = await prisma.conversationMember.findUnique({
-      where: { user_id_conversation_id: { user_id: req.user.id, conversation_id: id } }
+      where: { conversation_id_user_id: { conversation_id: id, user_id: req.user.id } }
     })
     if (!member) return res.status(404).json({ error: 'No eres miembro de esta conversación' })
 
     const updated = await prisma.conversationMember.update({
-      where: { user_id_conversation_id: { user_id: req.user.id, conversation_id: id } },
+      where: { conversation_id_user_id: { conversation_id: id, user_id: req.user.id } },
       data: { is_favorite: !member.is_favorite }
     })
     res.json({ is_favorite: updated.is_favorite })
