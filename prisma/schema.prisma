@@ -46,6 +46,7 @@ model Conversation {
 model ConversationMember {
   conversation_id String @db.Uuid
   user_id         String @db.Uuid
+  is_favorite     Boolean @default(false)
 
   // Relaciones
   conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
