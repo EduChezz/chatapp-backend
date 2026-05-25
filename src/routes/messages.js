@@ -3,16 +3,23 @@ const auth = require('../middleware/auth')
 const prisma = require('../config/db')
 
 router.get('/:conversationId', auth, async (req, res) => {
-  const { conversationId } = req.params // Esta es la variable correcta
+  const { conversationId } = req.params
+  const page = parseInt(req.query.page) || 1
+  const limit = 30
+  const skip = (page - 1) * limit
+
   try {
+    const total = await prisma.message.count({
+      where: { conversation_id: conversationId }
+    })
+
     const messages = await prisma.message.findMany({
-      where: { conversation_id: conversationId }, // Cambia 'id' por 'conversationId'
-      include: {
-        sender: true,
-        reactions: true 
-      },
-      orderBy: { created_at: 'asc' }
-    });
+      where: { conversation_id: conversationId },
+      include: { sender: true, reactions: true },
+      orderBy: { created_at: 'desc' },
+      skip,
+      take: limit
+    })
 
     await prisma.message.updateMany({
       where: { 
@@ -23,8 +30,7 @@ router.get('/:conversationId', auth, async (req, res) => {
       data: { read: true }
     })
 
-    const result = messages.map(m => {
-      // Validación para evitar errores si no hay reacciones
+    const result = messages.reverse().map(m => {
       const groupedReactions = (m.reactions || []).reduce((acc, r) => {
         const existing = acc.find(x => x.emoji === r.emoji)
         if (existing) existing.count++
@@ -33,17 +39,26 @@ router.get('/:conversationId', auth, async (req, res) => {
       }, [])
 
       return {
-        id: m.id, content: m.content, type: m.type, 
+        id: m.id, content: m.content, type: m.type,
         file_name: m.file_name, file_size: m.file_size,
         read: m.read, created_at: m.created_at,
         sent: m.sender_id === req.user.id,
         sender_name: m.sender?.name,
         sender_color: m.sender?.avatar_color,
+        edited: m.edited,
         reactions: groupedReactions
       }
     })
 
-    res.json(result)
+    res.json({
+      messages: result,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: skip + limit < total
+      }
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
