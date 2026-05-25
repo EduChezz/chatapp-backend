@@ -5,6 +5,7 @@
     "node": "20.x"
   },
   "scripts": {
+    "build": "npx prisma generate",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
