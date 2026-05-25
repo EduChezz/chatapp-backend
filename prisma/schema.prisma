@@ -68,6 +68,7 @@ model Message {
   file_size       String?   @db.VarChar(50)
   read            Boolean?  @default(false)
   edited          Boolean?  @default(false)
+  forwarded_from  String?   @db.Uuid
   created_at      DateTime? @default(now()) @db.Timestamp(6)
 
   // Relaciones

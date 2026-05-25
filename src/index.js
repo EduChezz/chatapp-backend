@@ -193,6 +193,43 @@ io.on('connection', (socket) => {
     }
   })
   
+  // ✨ NUEVO: Evento para Reenviar Mensaje
+  socket.on('message:forward', async ({ messageId, toConversationId, senderId }) => {
+    try {
+      // Buscamos el mensaje original
+      const original = await prisma.message.findUnique({
+        where: { id: messageId }
+      })
+      if (!original) return
+
+      // Creamos una copia en la nueva conversación
+      const msg = await prisma.message.create({
+        data: {
+          conversation_id: toConversationId,
+          sender_id: senderId,
+          content: original.content,
+          type: original.type,
+          file_name: original.file_name,
+          file_size: original.file_size,
+          forwarded_from: messageId
+        }
+      })
+
+      // Buscamos los participantes del chat destino
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: toConversationId },
+        include: { members: true }
+      })
+
+      if (conversation) {
+        const rooms = [toConversationId, ...conversation.members.map(m => m.user_id)]
+        io.to(rooms).emit('message:new', { ...msg, sent: false, is_forwarded: true })
+      }
+    } catch (err) {
+      console.error('Error reenviando mensaje: - index.js:229', err.message)
+    }
+  })
+  
   // Desconexión
   socket.on('disconnect', async () => {
     const userId = await redisClient.hGet('socket_users', socket.id)
@@ -204,7 +241,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:207', socket.id)
+    console.log('❌ Socket desconectado: - index.js:244', socket.id)
   })
 })
 
@@ -212,8 +249,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:215')
+  console.log('🟢 Conectado a Redis - index.js:252')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:217`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:254`)
   })
 })
