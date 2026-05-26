@@ -230,6 +230,10 @@ io.on('connection', (socket) => {
     }
   })
   
+  socket.on('profile:update', ({ userId, status, bio, avatar_url, avatar_color, name }) => {
+    socket.broadcast.emit('profile:updated', { userId, status, bio, avatar_url, avatar_color, name })
+  })
+   
   // Desconexión
   socket.on('disconnect', async () => {
     const userId = await redisClient.hGet('socket_users', socket.id)
@@ -241,7 +245,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: - index.js:244', socket.id)
+    console.log('❌ Socket desconectado: - index.js:248', socket.id)
   })
 })
 
@@ -249,8 +253,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis - index.js:252')
+  console.log('🟢 Conectado a Redis - index.js:256')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} - index.js:254`)
+    console.log(`🚀 Servidor en puerto ${PORT} - index.js:258`)
   })
 })
