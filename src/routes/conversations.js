@@ -21,7 +21,7 @@ router.get('/', auth, async (req, res) => {
         },
         members: {
           include: {
-            user: { select: { name: true, avatar_color: true } }
+            user: { select: { name: true, avatar_color: true, avatar_url: true, status: true, bio: true } }
           }
         }
       }
@@ -36,6 +36,9 @@ router.get('/', auth, async (req, res) => {
       name: !c.is_group && otherMember ? otherMember.user.name : c.name,
       is_group: c.is_group,
       color: !c.is_group && otherMember ? otherMember.user.avatar_color : c.color,
+      avatar_url: !c.is_group && otherMember ? otherMember.user.avatar_url : null,
+      status: !c.is_group && otherMember ? otherMember.user.status : null,
+      bio: !c.is_group && otherMember ? otherMember.user.bio : null,
       created_at: c.created_at,
       last_message: c.messages[0]?.content || null,
       last_message_time: c.messages[0]?.created_at || null,
@@ -86,7 +89,7 @@ router.post('/', auth, async (req, res) => {
     })
     res.status(201).json(conv)
   } catch (err) {
-    console.error("🔥 Error creando chat: - conversations.js:89", err.message)
+    console.error("🔥 Error creando chat: - conversations.js:92", err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -185,7 +188,7 @@ router.get('/:id/members', auth, async (req, res) => {
     const users = chat ? chat.members.map(m => ({ ...m.user, role: m.role })) : [];
     res.json(users);
   } catch (err) {
-    console.error("🔥 Error cargando integrantes: - conversations.js:188", err.message);
+    console.error("🔥 Error cargando integrantes: - conversations.js:191", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -211,7 +214,7 @@ router.delete('/:id/members/:userId', auth, async (req, res) => {
 
     res.json({ message: 'Usuario eliminado del grupo exitosamente' })
   } catch (err) {
-    console.error("🔥 Error eliminando integrante: - conversations.js:214", err.message)
+    console.error("🔥 Error eliminando integrante: - conversations.js:217", err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -233,7 +236,7 @@ router.post('/:id/members', auth, async (req, res) => {
 
     res.json({ message: 'Usuario añadido exitosamente' });
   } catch (err) {
-    console.error("🔥 Error añadiendo integrante: - conversations.js:236", err.message);
+    console.error("🔥 Error añadiendo integrante: - conversations.js:239", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -254,7 +257,7 @@ router.put('/:id/read', auth, async (req, res) => {
 
     res.json({ message: 'Mensajes marcados como leídos exitosamente' });
   } catch (err) {
-    console.error("🔥 Error al marcar como leído: - conversations.js:257", err.message);
+    console.error("🔥 Error al marcar como leído: - conversations.js:260", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -279,7 +282,7 @@ router.delete('/:id', auth, async (req, res) => {
 
     res.json({ message: 'Chat eliminado exitosamente' });
   } catch (err) {
-    console.error("🔥 Error eliminando chat: - conversations.js:282", err.message);
+    console.error("🔥 Error eliminando chat: - conversations.js:285", err.message);
     res.status(500).json({ error: err.message });
   }
 });
