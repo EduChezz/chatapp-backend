@@ -36,7 +36,7 @@ router.get('/', auth, async (req, res) => {
       name: !c.is_group && otherMember ? otherMember.user.name : c.name,
       is_group: c.is_group,
       color: !c.is_group && otherMember ? otherMember.user.avatar_color : c.color,
-      avatar_url: !c.is_group && otherMember ? otherMember.user.avatar_url : null,
+      avatar_url: !c.is_group && otherMember ? otherMember.user.avatar_url : c.avatar_url,
       status: !c.is_group && otherMember ? otherMember.user.status : null,
       bio: !c.is_group && otherMember ? otherMember.user.bio : null,
       created_at: c.created_at,
@@ -286,5 +286,25 @@ router.delete('/:id', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Actualizar foto del grupo
+router.put('/:id/avatar', auth, async (req, res) => {
+  const { avatar_url } = req.body
+  try {
+    const member = await prisma.conversationMember.findUnique({
+      where: { conversation_id_user_id: { conversation_id: req.params.id, user_id: req.user.id } }
+    })
+    if (!member || member.role !== 'admin') {
+      return res.status(403).json({ error: 'Solo el admin puede cambiar la foto del grupo' })
+    }
+    const updated = await prisma.conversation.update({
+      where: { id: req.params.id },
+      data: { avatar_url }
+    })
+    res.json({ avatar_url: updated.avatar_url })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
 module.exports = router
