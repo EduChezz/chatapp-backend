@@ -233,6 +233,44 @@ io.on('connection', (socket) => {
   socket.on('profile:update', ({ userId, status, bio, avatar_url, avatar_color, name }) => {
     socket.broadcast.emit('profile:updated', { userId, status, bio, avatar_url, avatar_color, name })
   })
+
+  // ✨ LLAMADAS: Iniciar llamada
+  socket.on('call:start', ({ toUserId, fromUserId, fromName, fromAvatar, callType }) => {
+    io.to(toUserId).emit('call:incoming', { fromUserId, fromName, fromAvatar, callType })
+  })
+
+  // ✨ LLAMADAS: Aceptar llamada
+  socket.on('call:accept', ({ toUserId, callType }) => {
+    io.to(toUserId).emit('call:accepted', { callType })
+  })
+
+  // ✨ LLAMADAS: Rechazar llamada
+  socket.on('call:reject', ({ toUserId }) => {
+    io.to(toUserId).emit('call:rejected')
+  })
+
+  // ✨ LLAMADAS: Colgar
+  socket.on('call:end', ({ toUserId }) => {
+    io.to(toUserId).emit('call:ended')
+  })
+
+  // ✨ LLAMADAS: Subir de voz a video
+  socket.on('call:upgrade', ({ toUserId }) => {
+    io.to(toUserId).emit('call:upgrade')
+  })
+
+  // ✨ WebRTC: Señalización
+  socket.on('webrtc:offer', ({ toUserId, offer }) => {
+    io.to(toUserId).emit('webrtc:offer', { offer, fromUserId: socket.id })
+  })
+
+  socket.on('webrtc:answer', ({ toUserId, answer }) => {
+    io.to(toUserId).emit('webrtc:answer', { answer })
+  })
+
+  socket.on('webrtc:ice', ({ toUserId, candidate }) => {
+    io.to(toUserId).emit('webrtc:ice', { candidate })
+  })
    
   // Desconexión
   socket.on('disconnect', async () => {
