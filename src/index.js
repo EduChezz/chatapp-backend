@@ -20,6 +20,16 @@ app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
+app.get('/api/turn-credentials', async (req, res) => {
+  try {
+    const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+    const token = await client.tokens.create()
+    res.json(token.iceServers)
+  } catch (err) {
+    console.error('Error Twilio:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 // Rutas
 app.use('/api/auth', require('./routes/auth'))
