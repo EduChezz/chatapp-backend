@@ -41,32 +41,32 @@ const redisClient = require('./config/redis')
 
 // WebSockets con Redis
 io.on('connection', (socket) => {
-  console.log('🔌 Socket conectado: ', socket.id)
+  console.log('馃攲 Socket conectado: ', socket.id)
 
   // Usuario se conecta
   socket.on('user:join', async (userId) => {
-    // 3. Guardamos la conexión en la "bóveda" de Redis
+    // 3. Guardamos la conexi贸n en la "b贸veda" de Redis
     await redisClient.hSet('user_sockets', userId, socket.id)
     await redisClient.hSet('socket_users', socket.id, userId)
 
-    // 🔥 CRUCIAL: El usuario se une a su "cuarto personal" usando su propio ID
+    // 馃敟 CRUCIAL: El usuario se une a su "cuarto personal" usando su propio ID
     socket.join(userId)
 
-    // Leemos quiénes están conectados directamente desde Redis
+    // Leemos qui茅nes est谩n conectados directamente desde Redis
     const onlineUsers = await redisClient.hKeys('user_sockets')
     io.emit('users:online', onlineUsers)
-    console.log(`👤 Usuario ${userId} en línea `)
+    console.log(`馃懁 Usuario ${userId} en l铆nea `)
   })
 
   socket.on('conversation:join', (conversationId) => {
     socket.join(conversationId)
   })
 
-  // 🔥 AQUÍ ESTÁ LA MAGIA DEL TIMBRAZO PERSONAL
+  // 馃敟 AQU脥 EST脕 LA MAGIA DEL TIMBRAZO PERSONAL
   socket.on('message:send', async (data) => {
     const { conversationId, senderId, content, type, fileName, fileSize } = data
     try {
-      // Verificar si algún miembro bloqueó al remitente
+      // Verificar si alg煤n miembro bloque贸 al remitente
       const conv = await prisma.conversation.findUnique({
         where: { id: conversationId },
         include: { members: true }
@@ -112,8 +112,8 @@ io.on('connection', (socket) => {
         // Creamos una lista con el cuarto general del chat Y los cuartos personales de cada usuario
         const rooms = [conversationId, ...conversation.members.map(m => m.user_id)]
         
-        // io.to(lista) envía el mensaje a todos. Socket.io es tan inteligente que 
-        // si alguien está en ambos cuartos, NO le duplica el mensaje. ¡Pura magia!
+        // io.to(lista) env铆a el mensaje a todos. Socket.io es tan inteligente que 
+        // si alguien est谩 en ambos cuartos, NO le duplica el mensaje. 隆Pura magia!
         io.to(rooms).emit('message:new', { ...msg, sent: false })
       } else {
         io.to(conversationId).emit('message:new', { ...msg, sent: false })
@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
 
   socket.on('reaction:add', async ({ conversationId, messageId, emoji, userId }) => {
   try {
-    // 1. Verificar si la reacción ya existe (Toggle)
+    // 1. Verificar si la reacci贸n ya existe (Toggle)
     const existing = await prisma.reaction.findUnique({
       where: {
         user_id_message_id_emoji: {
@@ -161,14 +161,14 @@ io.on('connection', (socket) => {
       io.to(conversationId).emit('reaction:add', { messageId, emoji, userId });
     }
   } catch (error) {
-    console.error("Error al gestionar reacción: ", error);
+    console.error("Error al gestionar reacci贸n: ", error);
   }
 });
   
   socket.on('message:read', ({ conversationId, readerId }) => {
     socket.to(conversationId).emit('message:read_update', { conversationId, readerId })
   })
-  // ✨ NUEVO: Evento para Editar Mensaje
+  // 鉁?NUEVO: Evento para Editar Mensaje
   socket.on('message:edit', async ({ messageId, conversationId, newContent }) => {
     try {
       // 1. Actualizamos el texto en la base de datos
@@ -176,21 +176,21 @@ io.on('connection', (socket) => {
         where: { id: messageId },
         data: { content: newContent, edited: true }
       })
-      // 2. Le avisamos a todos en el chat que el texto cambió
+      // 2. Le avisamos a todos en el chat que el texto cambi贸
       io.to(conversationId).emit('message:edit', { messageId, newContent })
     } catch (err) {
       console.error('Error al editar mensaje: ', err.message)
     }
   })
 
-  // ✨ NUEVO: Evento para Eliminar Mensaje (Lógico)
+  // 鉁?NUEVO: Evento para Eliminar Mensaje (L贸gico)
   socket.on('message:delete', async ({ messageId, conversationId }) => {
     try {
       // 1. "Vaciamos" el mensaje en la base de datos para no dejar rastros
       await prisma.message.update({
         where: { id: messageId },
         data: { 
-          content: '🚫 Este mensaje fue eliminado',
+          content: '馃毇 Este mensaje fue eliminado',
           type: 'deleted',
           file_name: null,
           file_size: null
@@ -203,7 +203,7 @@ io.on('connection', (socket) => {
     }
   })
   
-  // ✨ NUEVO: Evento para Reenviar Mensaje
+  // 鉁?NUEVO: Evento para Reenviar Mensaje
   socket.on('message:forward', async ({ messageId, toConversationId, senderId }) => {
     try {
       // Buscamos el mensaje original
@@ -212,7 +212,7 @@ io.on('connection', (socket) => {
       })
       if (!original) return
 
-      // Creamos una copia en la nueva conversación
+      // Creamos una copia en la nueva conversaci贸n
       const msg = await prisma.message.create({
         data: {
           conversation_id: toConversationId,
@@ -244,32 +244,53 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('profile:updated', { userId, status, bio, avatar_url, avatar_color, name })
   })
 
-  // ✨ LLAMADAS: Iniciar llamada
+  // 鉁?LLAMADAS: Iniciar llamada
   socket.on('call:start', ({ toUserId, fromUserId, fromName, fromAvatar, callType }) => {
     io.to(toUserId).emit('call:incoming', { fromUserId, fromName, fromAvatar, callType })
   })
 
-  // ✨ LLAMADAS: Aceptar llamada
+  // 鉁?LLAMADAS: Aceptar llamada
   socket.on('call:accept', ({ toUserId, callType }) => {
     io.to(toUserId).emit('call:accepted', { callType })
   })
 
-  // ✨ LLAMADAS: Rechazar llamada
+  // 鉁?LLAMADAS: Rechazar llamada
   socket.on('call:reject', ({ toUserId }) => {
     io.to(toUserId).emit('call:rejected')
   })
 
-  // ✨ LLAMADAS: Colgar
+  // 鉁?LLAMADAS: Colgar
   socket.on('call:end', ({ toUserId }) => {
     io.to(toUserId).emit('call:ended')
   })
 
-  // ✨ LLAMADAS: Subir de voz a video
+  // 鉁?LLAMADAS: Subir de voz a video
   socket.on('call:upgrade', ({ toUserId }) => {
     io.to(toUserId).emit('call:upgrade')
   })
 
-  // ✨ WebRTC: Señalización
+  // 鉁?LLAMADAS GRUPALES: Iniciar llamada a m煤ltiples usuarios
+  socket.on('call:group_start', ({ toUserIds, fromUserId, fromName, fromAvatar, callType, conversationId }) => {
+    toUserIds.forEach(uid => {
+      io.to(uid).emit('call:group_incoming', { fromUserId, fromName, fromAvatar, callType, conversationId, allUserIds: [fromUserId, ...toUserIds] })
+    })
+  })
+
+  // 鉁?LLAMADAS GRUPALES: Un miembro se une 鈥?avisa a todos los dem谩s
+  socket.on('call:group_join', ({ toUserIds, fromUserId, callType }) => {
+    toUserIds.forEach(uid => {
+      io.to(uid).emit('call:group_peer_joined', { fromUserId, callType })
+    })
+  })
+
+  // 鉁?LLAMADAS GRUPALES: Un miembro cuelga 鈥?avisa a los dem谩s (sin terminar la llamada)
+  socket.on('call:group_leave', ({ toUserIds, fromUserId }) => {
+    toUserIds.forEach(uid => {
+      io.to(uid).emit('call:group_peer_left', { fromUserId })
+    })
+  })
+
+  // 鉁?WebRTC: Se帽alizaci贸n
   socket.on('webrtc:offer', ({ toUserId, offer }) => {
     io.to(toUserId).emit('webrtc:offer', { offer, fromUserId: socket.id })
   })
@@ -282,7 +303,7 @@ io.on('connection', (socket) => {
     io.to(toUserId).emit('webrtc:ice', { candidate })
   })
    
-  // Desconexión
+  // Desconexi贸n
   socket.on('disconnect', async () => {
     const userId = await redisClient.hGet('socket_users', socket.id)
 
@@ -293,7 +314,7 @@ io.on('connection', (socket) => {
       const onlineUsers = await redisClient.hKeys('user_sockets')
       io.emit('users:online', onlineUsers)
     }
-    console.log('❌ Socket desconectado: ', socket.id)
+    console.log('鉂?Socket desconectado: ', socket.id)
   })
 })
 
@@ -301,8 +322,8 @@ const PORT = process.env.PORT || 3001
 
 // 5. Encendemos Redis primero y luego el servidor
 redisClient.connect().then(() => {
-  console.log('🟢 Conectado a Redis ')
+  console.log('馃煝 Conectado a Redis ')
   server.listen(PORT, () => {
-    console.log(`🚀 Servidor en puerto ${PORT} `)
+    console.log(`馃殌 Servidor en puerto ${PORT} `)
   })
 })
