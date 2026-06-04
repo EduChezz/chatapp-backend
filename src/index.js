@@ -18,6 +18,7 @@ const io = new Server(server, {
 app.use(cors({ origin: FRONTEND_URL }))
 app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+app.use('/api/agora', require('./routes/agora'))
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 app.get('/api/turn-credentials', async (req, res) => {
