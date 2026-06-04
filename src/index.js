@@ -247,8 +247,8 @@ io.on('connection', (socket) => {
   })
 
   // 鉁?LLAMADAS: Iniciar llamada
-  socket.on('call:start', ({ toUserId, fromUserId, fromName, fromAvatar, callType }) => {
-    io.to(toUserId).emit('call:incoming', { fromUserId, fromName, fromAvatar, callType })
+  socket.on('call:start', ({ toUserId, fromUserId, fromName, fromAvatar, callType, channelName }) => {
+    io.to(toUserId).emit('call:incoming', { fromUserId, fromName, fromAvatar, callType, channelName })
   })
 
   // 鉁?LLAMADAS: Aceptar llamada
