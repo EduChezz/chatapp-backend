@@ -8,14 +8,26 @@ const prisma = require('./config/db')
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 
+const allowedOrigins = [
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:5174',
+]
+
 const app = express()
 const server = http.createServer(app)
 
-const io = new Server(server, {
-  cors: { origin: FRONTEND_URL, methods: ['GET', 'POST'] }
-})
+const corsOptions = {
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true)
+    cb(new Error('CORS not allowed: ' + origin))
+  },
+  methods: ['GET', 'POST']
+}
 
-app.use(cors({ origin: FRONTEND_URL }))
+const io = new Server(server, { cors: corsOptions })
+
+app.use(cors(corsOptions))
 app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 app.use('/api/agora', require('./routes/agora'))
